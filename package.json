@@ -1,10 +1,13 @@
 {
-  "name": "ui5-i18n-sync",
-  "displayName": "UI5 i18n Sync",
+  "name": "ui5-gen-i18n",
+  "displayName": "UI5 gen i18n",
   "description": "Scans SAP UI5 XML views/fragments for {i18n>...} bindings, checks them against the i18n.properties files and adds missing keys.",
-  "version": "0.1.0",
-  "publisher": "laurin",
-  "license": "MIT",
+  "version": "0.1.1",
+  "publisher": "LaurinSorgend",
+  "license": "Unlicense",
+  "repository": {
+    "url": "https://github.com/LaurinSorgend/vscode-ui5-gen-i18n.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -24,18 +27,18 @@
   "contributes": {
     "commands": [
       {
-        "command": "ui5I18nSync.checkCurrentFile",
+        "command": "ui5GenI18n.checkCurrentFile",
         "title": "UI5 i18n: Check Current View/Fragment"
       },
       {
-        "command": "ui5I18nSync.checkAllViews",
+        "command": "ui5GenI18n.checkAllViews",
         "title": "UI5 i18n: Check All Views/Fragments"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "ui5I18nSync.checkCurrentFile",
+          "command": "ui5GenI18n.checkCurrentFile",
           "when": "resourceFilename =~ /\\.(view|fragment)\\.xml$/",
           "group": "1_modification@100"
         }
@@ -44,32 +47,32 @@
     "configuration": {
       "title": "UI5 i18n Sync",
       "properties": {
-        "ui5I18nSync.modelName": {
+        "ui5GenI18n.modelName": {
           "type": "string",
           "default": "i18n",
           "description": "Name of the resource model used in bindings, e.g. 'i18n' for {i18n>key}."
         },
-        "ui5I18nSync.filePattern": {
+        "ui5GenI18n.filePattern": {
           "type": "string",
           "default": "**/*.{view,fragment}.xml",
           "description": "Glob used by 'Check All Views/Fragments'."
         },
-        "ui5I18nSync.excludePattern": {
+        "ui5GenI18n.excludePattern": {
           "type": "string",
           "default": "**/{node_modules,dist,.git}/**",
           "description": "Glob of folders to exclude when scanning."
         },
-        "ui5I18nSync.placeholder": {
+        "ui5GenI18n.placeholder": {
           "type": "string",
           "default": "TODO: ${key}",
           "description": "Value written for newly added keys. ${key} is replaced with the key name, ${keyHuman} with a humanized version (e.g. 'btnSaveText' -> 'Btn Save Text')."
         },
-        "ui5I18nSync.addToAllLocales": {
+        "ui5GenI18n.addToAllLocales": {
           "type": "boolean",
           "default": false,
           "description": "Also append missing keys to locale variants (i18n_de.properties etc.), not only the base i18n.properties."
         },
-        "ui5I18nSync.askBeforeAdding": {
+        "ui5GenI18n.askBeforeAdding": {
           "type": "boolean",
           "default": true,
           "description": "Show a confirmation pick list before adding missing keys. If disabled, all missing keys are added immediately."

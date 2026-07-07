@@ -1,4 +1,4 @@
-# UI5 i18n Sync
+# UI5 gen i18n
 
 VS Code extension for SAP UI5: finds `{i18n>...}` bindings in XML views/fragments, checks them against your `i18n.properties` files and appends missing keys.
 
@@ -11,12 +11,12 @@ VS Code extension for SAP UI5: finds `{i18n>...}` bindings in XML views/fragment
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `ui5I18nSync.modelName` | `i18n` | Resource model name in bindings |
-| `ui5I18nSync.filePattern` | `**/*.{view,fragment}.xml` | Glob for "Check All" |
-| `ui5I18nSync.excludePattern` | `**/{node_modules,dist,.git}/**` | Excluded folders |
-| `ui5I18nSync.placeholder` | `TODO: ${key}` | Value for new keys; supports `${key}` and `${keyHuman}` |
-| `ui5I18nSync.addToAllLocales` | `false` | Also append to `i18n_de.properties` etc. |
-| `ui5I18nSync.askBeforeAdding` | `true` | Confirm keys via QuickPick before writing |
+| `ui5GenI18n.modelName` | `i18n` | Resource model name in bindings |
+| `ui5GenI18n.filePattern` | `**/*.{view,fragment}.xml` | Glob for "Check All" |
+| `ui5GenI18n.excludePattern` | `**/{node_modules,dist,.git}/**` | Excluded folders |
+| `ui5GenI18n.placeholder` | `TODO: ${key}` | Value for new keys; supports `${key}` and `${keyHuman}` |
+| `ui5GenI18n.addToAllLocales` | `false` | Also append to `i18n_de.properties` etc. |
+| `ui5GenI18n.askBeforeAdding` | `true` | Confirm keys via QuickPick before writing |
 
 ## Build from source
 

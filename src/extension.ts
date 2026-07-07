@@ -20,8 +20,8 @@ const output = vscode.window.createOutputChannel("UI5 i18n Sync");
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    vscode.commands.registerCommand("ui5I18nSync.checkCurrentFile", checkCurrentFile),
-    vscode.commands.registerCommand("ui5I18nSync.checkAllViews", checkAllViews),
+    vscode.commands.registerCommand("ui5GenI18n.checkCurrentFile", checkCurrentFile),
+    vscode.commands.registerCommand("ui5GenI18n.checkAllViews", checkAllViews),
     output
   );
 }
@@ -42,7 +42,7 @@ async function checkCurrentFile(): Promise<void> {
 }
 
 async function checkAllViews(): Promise<void> {
-  const cfg = vscode.workspace.getConfiguration("ui5I18nSync");
+  const cfg = vscode.workspace.getConfiguration("ui5GenI18n");
   const pattern = cfg.get<string>("filePattern", "**/*.{view,fragment}.xml");
   const exclude = cfg.get<string>("excludePattern", "**/{node_modules,dist,.git}/**");
   const files = await vscode.workspace.findFiles(pattern, exclude);
@@ -58,7 +58,7 @@ async function checkAllViews(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function runCheck(files: vscode.Uri[]): Promise<void> {
-  const cfg = vscode.workspace.getConfiguration("ui5I18nSync");
+  const cfg = vscode.workspace.getConfiguration("ui5GenI18n");
   const modelName = cfg.get<string>("modelName", "i18n");
 
   // Group used keys per i18n bundle (a workspace can contain several apps)
@@ -244,7 +244,7 @@ async function bundleFromManifest(manifest: vscode.Uri): Promise<I18nBundle | nu
   try {
     const raw = (await vscode.workspace.openTextDocument(manifest)).getText();
     const json = JSON.parse(raw);
-    const cfg = vscode.workspace.getConfiguration("ui5I18nSync");
+    const cfg = vscode.workspace.getConfiguration("ui5GenI18n");
     const modelName = cfg.get<string>("modelName", "i18n");
     const appId: string | undefined = json?.["sap.app"]?.id;
     const model = json?.["sap.ui5"]?.models?.[modelName];
