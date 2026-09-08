@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import { parsePropertyKeys } from "./properties";
 
 interface I18nBundle {
   /** Base properties file (i18n.properties) */
@@ -65,6 +66,11 @@ async function runCheck(files: vscode.Uri[]): Promise<void> {
   const bundles = new Map<string, { bundle: I18nBundle; used: Map<string, UsedKey> }>();
   const unresolved: string[] = [];
 
+  // Caches live for the duration of one check only. Anything longer would keep
+  // a stale snapshot of i18n.properties around and re-add keys that meanwhile
+  // exist on disk.
+  const resolveCache: ResolveCache = { paths: new Map(), bundles: new Map() };
+
   for (const file of files) {
     const text = (await vscode.workspace.openTextDocument(file)).getText();
     const keys = extractI18nKeys(text, modelName);
@@ -72,7 +78,7 @@ async function runCheck(files: vscode.Uri[]): Promise<void> {
       continue;
     }
 
-    const bundle = await findBundleForView(file);
+    const bundle = await findBundleForView(file, resolveCache);
     if (!bundle) {
       unresolved.push(vscode.workspace.asRelativePath(file));
       continue;
@@ -195,52 +201,79 @@ export function extractI18nKeys(text: string, modelName: string): Set<string> {
 // Bundle resolution
 // ---------------------------------------------------------------------------
 
-const bundleCache = new Map<string, I18nBundle | null>();
+interface ResolveCache {
+  /** view folder -> base properties file path (null = no bundle above it) */
+  paths: Map<string, string | null>;
+  /** base properties file path -> bundle loaded during this check */
+  bundles: Map<string, I18nBundle>;
+}
 
 /**
  * Finds the i18n bundle responsible for a given view:
  * 1. Walk up from the view's folder looking for a manifest.json.
  * 2. If found, resolve sap.ui5/models/<modelName> bundleName/uri, else sap.app/i18n.
  * 3. Fallback: look for an i18n/i18n.properties folder while walking up.
+ *
+ * Only the *location* is cached, and only for the duration of one check; the
+ * keys themselves are re-read from disk every time, so a properties file that
+ * changed since the last run is never compared against a stale snapshot.
  */
-async function findBundleForView(view: vscode.Uri): Promise<I18nBundle | null> {
+async function findBundleForView(view: vscode.Uri, cache: ResolveCache): Promise<I18nBundle | null> {
+  const baseFilePath = await resolveBundlePath(view, cache);
+  if (!baseFilePath) {
+    return null;
+  }
+  let bundle = cache.bundles.get(baseFilePath);
+  if (!bundle) {
+    bundle = await loadBundle(vscode.Uri.file(baseFilePath));
+    cache.bundles.set(baseFilePath, bundle);
+  }
+  return bundle;
+}
+
+async function resolveBundlePath(view: vscode.Uri, cache: ResolveCache): Promise<string | null> {
   const wsFolder = vscode.workspace.getWorkspaceFolder(view);
   const stopAt = wsFolder ? wsFolder.uri.fsPath : path.parse(view.fsPath).root;
+  const visited: string[] = [];
   let dir = path.dirname(view.fsPath);
+  let found: string | null = null;
 
   while (true) {
-    const cached = bundleCache.get(dir);
+    const cached = cache.paths.get(dir);
     if (cached !== undefined) {
-      return cached;
+      found = cached;
+      break;
     }
+    visited.push(dir);
 
     // 1) manifest.json in this folder?
     const manifest = vscode.Uri.file(path.join(dir, "manifest.json"));
     if (await exists(manifest)) {
-      const bundle = await bundleFromManifest(manifest);
-      if (bundle) {
-        bundleCache.set(dir, bundle);
-        return bundle;
+      const fromManifest = await bundlePathFromManifest(manifest);
+      if (fromManifest) {
+        found = fromManifest;
+        break;
       }
     }
 
     // 2) conventional i18n folder?
-    const conventional = vscode.Uri.file(path.join(dir, "i18n", "i18n.properties"));
-    if (await exists(conventional)) {
-      const bundle = await loadBundle(conventional);
-      bundleCache.set(dir, bundle);
-      return bundle;
+    const conventional = path.join(dir, "i18n", "i18n.properties");
+    if (await exists(vscode.Uri.file(conventional))) {
+      found = conventional;
+      break;
     }
 
     if (dir === stopAt || path.dirname(dir) === dir) {
-      bundleCache.set(dir, null);
-      return null;
+      break;
     }
     dir = path.dirname(dir);
   }
+
+  visited.forEach((d) => cache.paths.set(d, found));
+  return found;
 }
 
-async function bundleFromManifest(manifest: vscode.Uri): Promise<I18nBundle | null> {
+async function bundlePathFromManifest(manifest: vscode.Uri): Promise<string | null> {
   try {
     const raw = (await vscode.workspace.openTextDocument(manifest)).getText();
     const json = JSON.parse(raw);
@@ -269,11 +302,8 @@ async function bundleFromManifest(manifest: vscode.Uri): Promise<I18nBundle | nu
     if (!relPath) {
       return null;
     }
-    const baseFile = vscode.Uri.file(path.join(appRoot, relPath));
-    if (!(await exists(baseFile))) {
-      return null;
-    }
-    return loadBundle(baseFile);
+    const baseFile = path.join(appRoot, relPath);
+    return (await exists(vscode.Uri.file(baseFile))) ? baseFile : null;
   } catch {
     return null;
   }
@@ -305,19 +335,8 @@ async function loadBundle(baseFile: vscode.Uri): Promise<I18nBundle> {
 }
 
 async function readPropertyKeys(file: vscode.Uri): Promise<Set<string>> {
-  const keys = new Set<string>();
   const text = (await vscode.workspace.openTextDocument(file)).getText();
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#") || line.startsWith("!")) {
-      continue;
-    }
-    const sep = line.search(/[=:]/);
-    if (sep > 0) {
-      keys.add(line.slice(0, sep).trim());
-    }
-  }
-  return keys;
+  return parsePropertyKeys(text);
 }
 
 // ---------------------------------------------------------------------------
@@ -335,11 +354,9 @@ async function appendKeys(
   const targets = addToAllLocales ? [bundle.baseFile, ...bundle.localeFiles] : [bundle.baseFile];
 
   for (const target of targets) {
-    // Re-read keys per file so locale files only get keys they're missing
-    const existing =
-      target.toString() === bundle.baseFile.toString()
-        ? bundle.keys
-        : await readPropertyKeys(target);
+    // Re-read every target right before writing — including the base file —
+    // so a key added since the check ran is never duplicated.
+    const existing = await readPropertyKeys(target);
 
     const toWrite = keys.filter((k) => !existing.has(k));
     if (toWrite.length === 0) {
