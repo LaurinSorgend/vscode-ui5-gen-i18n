@@ -2,7 +2,7 @@
   "name": "ui5-gen-i18n",
   "displayName": "UI5 gen i18n",
   "description": "Scans SAP UI5 XML views/fragments for {i18n>...} bindings, checks them against the i18n.properties files and adds missing keys.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "LaurinSorgend",
   "license": "Unlicense",
   "repository": {
